@@ -1,0 +1,16 @@
+# This test fails
+test=>sleep 10
+timeout=>5
+
+# This test passes
+test=>sleep 4
+timeout=>5
+count=>3
+
+# You can write your own programs/scripts to verify the program output
+# It should return proper error codes to detect failure
+test=>touch log.txt
+verify=>ls log.txt1
+
+test=>touch log.txt2
+verify=>ls log.txt2
