@@ -3,7 +3,7 @@
 #
 #         FILE: tester.sh
 #
-#        USAGE: tester.sh [-n count] [-t timeout] -f <Tests File>
+#        USAGE: tester.sh [options] /path/to/tests/file
 #     
 #  DESCRIPTION: Script to automate testing of programs. 
 #
@@ -16,14 +16,16 @@
 NUM_ITER=1
 TEST_TIMEOUT=0
 VALID_NUM_REGEX='^[0-9]+$'
+TESTS_OUTPUT="tester_$(date +"%Y%m%d_%H%M")"
 
 function usage {
 echo "
-usage: tester.sh [-h] [-n count] [-t timeout] -f <Tests File>
+usage: tester.sh [-h] [-n count] [-t timeout] [-o output_dir] /path/to/tests/file
 
   -n count       Global Iteration count (Default = 1, Infinite = 0)
   -t timeout     Global Timeout in seconds (Default = 1, Infinite = 0)
-  -f <file>      File that contains the test vectors
+  -o output_dir  Path to output directory
+  -h             This help message
 
 The global iteration count and timeout can be overridden for individual tests
 in the test vectors file.
@@ -55,7 +57,7 @@ verify=>ls log.txt2
 "
 }
 
-while getopts ":n:t:h" opt; do
+while getopts ":n:t:ho:" opt; do
   case $opt in
     n)
       if ! [[ $OPTARG =~ $VALID_NUM_REGEX ]] ; then
@@ -72,6 +74,12 @@ while getopts ":n:t:h" opt; do
     h)
       usage
       exit 0 ;;
+    o)
+      if [[ ! -d "$OPTARG" ]]; then
+        echo "Error output directoy '$OPTARG' not found"
+        exit 0
+      fi
+      TESTS_OUTPUT=$OPTARG ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
       exit 0 ;;
@@ -201,9 +209,7 @@ if [ $PARSE_ERROR -eq 1 ]; then
   exit 0;
 fi
 
-rm -rf test_logs
-mkdir -p test_logs
-
+mkdir -p $TESTS_OUTPUT
 
 # Run all the tests
 function run_test_timed {
@@ -214,8 +220,8 @@ function run_test_timed {
   local ITESTNO=$5
   local IVERIFY=$6
   it=0
-#LOG_FILE="test_logs/$(echo "$ITEST" | sed -e 's/[^A-Za-z0-9._-]/_/g')_$IITER"
-  LOG_FILE="test_logs/${ITESTNO}_$(echo "$ITEST" | sed -e 's/[^A-Za-z0-9._-]/_/g')"
+
+  LOG_FILE="$TESTS_OUTPUT/${ITESTNO}_$(echo "$ITEST" | sed -e 's/[^A-Za-z0-9._-]/_/g')"
   mkdir -p "$LOG_FILE"
   LOG_FILE="$LOG_FILE/$IITER"
 
@@ -319,7 +325,7 @@ done
 SUCCESS=1
 if [ ${#TESTS_FAILED[@]} -ne 0 ]; then
   SUCCESS=0
-  echo -e "\n\nFollowing Tests Failed. Check logs in test_logs"
+  echo -e "\n\nFollowing Tests Failed. Check logs in $TESTS_OUTPUT"
   echo -e "------------------------------------------------------------------------------------------------\n"
   for i in "${TESTS_FAILED[@]}"
   do
@@ -331,7 +337,7 @@ fi
 
 if [ ${#TESTS_TIMEDOUT[@]} -ne 0 ]; then
   SUCCESS=0
-  echo -e "\n\nFollowing Tests Timed out. Check logs in test_logs"
+  echo -e "\n\nFollowing Tests Timed out. Check logs in $TESTS_OUTPUT"
   echo -e "------------------------------------------------------------------------------------------------\n"
   for i in "${TESTS_TIMEDOUT[@]}"
   do
@@ -340,11 +346,12 @@ if [ ${#TESTS_TIMEDOUT[@]} -ne 0 ]; then
   done
   echo "------------------------------------------------------------------------------------------------"
 fi
+
 if [ $SUCCESS -eq 1 ]; then
   echo "All Tests Successful"
 else
   if [ ${#TESTS_SUCCESSFUL[@]} -ne 0 ]; then
-    echo -e "\n\nFollowing Tests Passed. Check logs in test_logs"
+    echo -e "\n\nFollowing Tests Passed. Check logs in $TESTS_OUTPUT"
     echo -e "------------------------------------------------------------------------------------------------\n"
     for i in "${TESTS_SUCCESSFUL[@]}"
     do

@@ -1,11 +1,11 @@
 # bash-tester
 Bash script to test programs
 
-usage: tester.sh [-h] [-n count] [-t timeout] /path/to/tests/file
+usage: tester.sh [-h] [-n count] [-t timeout] [-o output_dir] /path/to/tests/file
 
   -n count       Global Iteration count (Default = 1, Infinite = 0)
   -t timeout     Global Timeout in seconds (Default = 1, Infinite = 0)
-  -f <file>      File that contains the test vectors
+	-o output_dir  Path to output directory
 
   The global iteration count and timeout can be overridden for individual tests
   in the test vectors file.
