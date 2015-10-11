@@ -33,20 +33,25 @@ Report bugs to: Shaunak Gupte <gupte.shaunak@gmail.com>
 Format of the Test Vectors File:
 
 # This is a comment
-test=>./myprogram
-timeout=>10
-count=>2
-
-# The following test will pass
+# This test fails
 test=>sleep 10
-timeout=>11
+timeout=>5
 
-# The following test will fail
-test=>sleep 10
-timeout=>7
+# This test passes
+test=>sleep 4
+timeout=>5
+count=>3
 
-test=>./myprogram3
-count=>5
+# You can write your own programs/scripts to verify the program output
+# It should return proper error codes to detect failure
+
+# This will fail
+test=>touch log.txt
+verify=>ls log.txt1
+
+# This will pass
+test=>touch log.txt2
+verify=>ls log.txt2
 "
 }
 
