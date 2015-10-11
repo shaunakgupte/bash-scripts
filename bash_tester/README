@@ -10,8 +10,10 @@ usage: tester.sh [-h] [-n count] [-t timeout] /path/to/tests/file
   The global iteration count and timeout can be overridden for individual tests
   in the test vectors file.
 
-*Format of the Test Vectors File:*
-```
+Report bugs to: Shaunak Gupte <gupte.shaunak@gmail.com>
+
+Format of the Test Vectors File:
+
 # This is a comment
     test=>./myprogram
     timeout=>10
@@ -27,4 +29,3 @@ usage: tester.sh [-h] [-n count] [-t timeout] /path/to/tests/file
 
     test=>./myprogram3
     count=>5
-```
