@@ -3,11 +3,11 @@ Bash script to test programs
 
 usage: tester.sh [-h] [-n count] [-t timeout] /path/to/tests/file
 
-  -n count       Global Iteration count (Default = 1, Infinite = 0)
-  -t timeout     Global Timeout in seconds (Default = 1, Infinite = 0)
-
-  The global iteration count and timeout can be overridden for individual tests
-  in the test vectors file.
+	-n count       Global Iteration count (Default = 1, Infinite = 0)
+	-t timeout     Global Timeout in seconds (Default = 1, Infinite = 0)
+	
+	The global iteration count and timeout can be overridden for individual tests
+	in the test vectors file.
 
 *Format of the Test Vectors File:*
 ```
