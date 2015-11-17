@@ -1,0 +1,6 @@
+# cron-reminder
+Bash script to manage periodic pop-up reminders
+
+usage: cron-reminder [add|remove|list|show|install]
+
+Report bugs to: Shaunak Gupte <gupte.shaunak@gmail.com>
