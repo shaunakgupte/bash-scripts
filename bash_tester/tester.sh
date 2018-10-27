@@ -239,21 +239,22 @@ function run_test_timed {
   echo -e "\nTEST = \"$ITEST\"\n"
   echo -e "========================================================================================\n"
 
-  $ITEST >>"$LOG_FILE" 2>&1 || touch fail &
+  $ITEST >>"$LOG_FILE" 2>&1 || echo $? > fail &
+
   local START_TIME=`date +%s%3N`
   CUR_TEST_TIME=0
-  PID=$!
+
   while [[ `echo "$ITIMEOUT==0" | bc` -eq 1 || `echo "$CUR_TEST_TIME < $ITIMEOUT" | bc` -eq 1 ]]; do
     echo -ne "$IITER/$ICOUNT.......[$CUR_TEST_TIME sec]\r"
     local CUR_TIME=`date +%s%3N`
     CUR_TEST_TIME=`echo "scale=2; ($CUR_TIME -$START_TIME) / 1000 " | bc`
-    kill -0 $PID 2>/dev/null >/dev/null || break
+    [[ `jobs | wc -l` -eq 0 ]] && break
     sleep $TEST_TIME_STEP
   done
 
-    kill -0 $PID 2>/dev/null >/dev/null && ret=2
+    [[ `jobs | wc -l` -eq 0 ]] || ret=2
     if [ $ret -eq 2 ]; then
-      kill -9 $PID 2>/dev/null >/dev/null
+      kill -9 %1 2>/dev/null >/dev/null
       echo -e "\n-------------------------- TIMED OUT & KILLED [Timeout = $ITIMEOUT sec] -------------------------"
     else
       if [ -f fail ]; then
@@ -309,7 +310,7 @@ do
     mkdir -p "$LOG_FILE"
     LOG_FILE="$LOG_FILE/$k"
 
-    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" > "$LOG_FILE"
+    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" | tee "$LOG_FILE"
     echo -n "$k/$ICOUNT......."
     case $ret in
       0)
