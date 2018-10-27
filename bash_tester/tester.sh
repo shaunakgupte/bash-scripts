@@ -236,8 +236,8 @@ function run_test_timed {
 
   ret=0
 
-  echo -e "\nTEST = \"$ITEST\"\n" >"$LOG_FILE"
-  echo -e "========================================================================================\n" >>"$LOG_FILE"
+  echo -e "\nTEST = \"$ITEST\"\n"
+  echo -e "========================================================================================\n"
 
   $ITEST >>"$LOG_FILE" 2>&1 || touch fail &
   local START_TIME=`date +%s%3N`
@@ -254,22 +254,22 @@ function run_test_timed {
     kill -0 $PID 2>/dev/null >/dev/null && ret=2
     if [ $ret -eq 2 ]; then
       kill -9 $PID 2>/dev/null >/dev/null
-      echo -e "\n-------------------------- TIMED OUT & KILLED [Timeout = $ITIMEOUT sec] -------------------------" >> "$LOG_FILE"
+      echo -e "\n-------------------------- TIMED OUT & KILLED [Timeout = $ITIMEOUT sec] -------------------------"
     else
       if [ -f fail ]; then
         ret=1
         rm fail
-        echo -e "\n-------------------------- FAILED [Running Time = $CUR_TEST_TIME sec] -------------------------" >> "$LOG_FILE"
+        echo -e "\n-------------------------- FAILED [Running Time = $CUR_TEST_TIME sec] -------------------------"
       else
         if [ -z "$IVERIFY" ]; then
-          echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------" >> "$LOG_FILE"
+          echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------"
         else
-          echo -e "========================================================================================\n" >>"$LOG_FILE"
-          $IVERIFY >> "$LOG_FILE" 2>&1 || ret=1
+          echo -e "========================================================================================\n"
+          $IVERIFY || ret=1
           if [ $ret -eq 0 ]; then
-            echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------" >> "$LOG_FILE"
+            echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------"
           else
-            echo -e "\n------------------ VERIFICATION FAILED [Running Time = $CUR_TEST_TIME sec] -----------------" >> "$LOG_FILE"
+            echo -e "\n------------------ VERIFICATION FAILED [Running Time = $CUR_TEST_TIME sec] -----------------"
           fi
         fi
       fi
@@ -304,7 +304,12 @@ do
   while [[ $ICOUNT -eq 0 || $j -lt $ICOUNT ]];
   do
     k=$((j+1))
-    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY"
+
+    LOG_FILE="$TESTS_OUTPUT/${i}_$(echo "$ITEST" | sed -e 's/[^A-Za-z0-9._-]/_/g')"
+    mkdir -p "$LOG_FILE"
+    LOG_FILE="$LOG_FILE/$k"
+
+    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" > "$LOG_FILE"
     echo -n "$k/$ICOUNT......."
     case $ret in
       0)
