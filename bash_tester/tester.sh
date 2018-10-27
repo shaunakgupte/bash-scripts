@@ -189,9 +189,9 @@ case $key in
           COUNTS+=($ICOUNT)
           TIMEOUTS+=($ITIMEOUT)
           VERIFYS+=("$IVERIFY")
-          TEST_CNT=$((TEST_CNT + 1))
           IS_NEGATIVES+=($IIS_NEGATIVE)
           IS_IGNORES+=($IIS_IGNORE)
+          TEST_CNT=$((TEST_CNT + 1))
         fi
         ICOUNT=$NUM_ITER
         ITIMEOUT=$TEST_TIMEOUT
@@ -234,6 +234,8 @@ if [ ! -z "${ICMD}" ]; then
   TIMEOUTS+=($ITIMEOUT)
   VERIFYS+=("$IVERIFY")
   TEST_CNT=$((TEST_CNT + 1))
+  IS_NEGATIVES+=($IIS_NEGATIVE)
+  IS_IGNORES+=($IIS_IGNORE)
 fi
 
 if [ $PARSE_ERROR -eq 1 ]; then
@@ -242,6 +244,7 @@ if [ $PARSE_ERROR -eq 1 ]; then
 fi
 
 mkdir -p $TESTS_OUTPUT
+
 
 # Run all the tests
 function run_test_timed {
@@ -257,7 +260,7 @@ function run_test_timed {
   mkdir -p "$LOG_FILE"
   LOG_FILE="$LOG_FILE/$IITER"
 
-  ret=0
+  local ret=0
 
   echo -e "\nTEST = \"$ITEST\"\n"
   echo -e "========================================================================================\n"
@@ -271,11 +274,15 @@ function run_test_timed {
     echo -ne "$IITER/$ICOUNT.......[$CUR_TEST_TIME sec]\r"
     local CUR_TIME=`date +%s%3N`
     CUR_TEST_TIME=`echo "scale=2; ($CUR_TIME -$START_TIME) / 1000 " | bc`
-    [[ `jobs | wc -l` -eq 0 ]] && break
+    jobs > /dev/null
+    NUM_JOBS=$(jobs | wc -l)
+    [[ $NUM_JOBS -eq 0 ]] && break
     sleep $TEST_TIME_STEP
   done
 
-    [[ `jobs | wc -l` -eq 0 ]] || ret=2
+    jobs > /dev/null
+    NUM_JOBS=$(jobs | wc -l)
+    [[ $NUM_JOBS -eq 0 ]] || ret=2
     if [ $ret -eq 2 ]; then
       kill -9 %1 2>/dev/null >/dev/null
       echo -e "\n-------------------------- TIMED OUT & KILLED [Timeout = $ITIMEOUT sec] -------------------------"
@@ -355,9 +362,10 @@ do
     mkdir -p "$LOG_FILE"
     LOG_FILE="$LOG_FILE/$k"
 
-    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" "$IIS_NEGATIVE" | tee "$LOG_FILE"
+    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" "$IIS_NEGATIVE" >(tee "$LOG_FILE")
+    TEST_RET=$?
     echo -n "$k/$ICOUNT......."
-    case $ret in
+    case $TEST_RET in
       0)
         echo "[Passed]"
         TOTAL_TIME=`echo "scale=2; $TOTAL_TIME + $CUR_TEST_TIME" | bc`
@@ -365,7 +373,7 @@ do
       1)
         echo "[Failed]"
         SUCCESS=0
-        if [[ $IS_IGNORE -eq 0 ]]; then
+        if [[ $IIS_IGNORE -eq 0 ]]; then
           TESTS_FAILED+=("[$i] $ITEST Iteration = $k")
         fi
         j=$ICOUNT;
@@ -373,7 +381,7 @@ do
       2)
         echo "[Timed Out]"
         SUCCESS=0
-        if [[ $IS_IGNORE -eq 0 ]]; then
+        if [[ $IIS_IGNORE -eq 0 ]]; then
           TESTS_TIMEDOUT+=("[$i] $ITEST Iteration = $k")
         fi
         j=$ICOUNT;
@@ -382,7 +390,8 @@ do
     j=$((j+1))
   done
 
-  if [[ $IS_IGNORE -ne 0 ]]; then
+  if [[ $IIS_IGNORE -ne 0 ]]; then
+    echo "SUCCESS=$SUCCESS"
       if [[ $SUCCESS -eq 0 ]]; then
         TESTS_IGNORED+=("[$i] $ITEST : FAILED")
       else
@@ -429,7 +438,7 @@ fi
 if [ ${#TESTS_IGNORED[@]} -ne 0 ]; then
   echo -e "\n\nFollowing Tests were Ignored. Check logs in $TESTS_OUTPUT"
   echo -e "------------------------------------------------------------------------------------------------\n"
-  for i in "${TESTS_TIMEDOUT[@]}"
+  for i in "${TESTS_IGNORED[@]}"
   do
     echo $i
     echo
