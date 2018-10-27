@@ -126,11 +126,15 @@ TESTS=()
 COUNTS=()
 TIMEOUTS=()
 VERIFYS=()
+IS_IGNORES=()
+IS_NEGATIVES=()
 
 ICOUNT=$NUM_ITER
 ITIMEOUT=$TEST_TIMEOUT
 IVERIFY=""
 ICMD=""
+IIS_NEGATIVE=0
+IIS_IGNORE=0
 
 TEST_CNT=0
 
@@ -186,11 +190,15 @@ case $key in
           TIMEOUTS+=($ITIMEOUT)
           VERIFYS+=("$IVERIFY")
           TEST_CNT=$((TEST_CNT + 1))
+          IS_NEGATIVES+=($IIS_NEGATIVE)
+          IS_IGNORES+=($IIS_IGNORE)
         fi
         ICOUNT=$NUM_ITER
         ITIMEOUT=$TEST_TIMEOUT
         IVERIFY=""
         ICMD=$value
+        IIS_IGNORE=0
+        IIS_NEGATIVE=0
       fi ;;
   verify)
     PROG=`echo $value | awk '{print $1}'`
@@ -199,6 +207,20 @@ case $key in
         PARSE_ERROR=1
       else
         IVERIFY=$value
+      fi ;;
+  negative)
+      if ! [[ $value =~ $VALID_NUM_REGEX ]] ; then
+        echo "Error in line $i: Value for count should be a number. Got '$value'" >&2
+        PARSE_ERROR=1
+      else
+        IIS_NEGATIVE=$value
+      fi ;;
+  ignore)
+      if ! [[ $value =~ $VALID_NUM_REGEX ]] ; then
+        echo "Error in line $i: Value for count should be a number. Got '$value'" >&2
+        PARSE_ERROR=1
+      else
+        IIS_IGNORE=$value
       fi ;;
   *)
   echo "Error in line $i: Not a valid key '$key'" >&2
@@ -229,6 +251,7 @@ function run_test_timed {
   local ICOUNT=$4
   local ITESTNO=$5
   local IVERIFY=$6
+  local IIS_NEGATIVE=$7
 
   LOG_FILE="$TESTS_OUTPUT/${ITESTNO}_$(echo "$ITEST" | sed -e 's/[^A-Za-z0-9._-]/_/g')"
   mkdir -p "$LOG_FILE"
@@ -258,19 +281,36 @@ function run_test_timed {
       echo -e "\n-------------------------- TIMED OUT & KILLED [Timeout = $ITIMEOUT sec] -------------------------"
     else
       if [ -f fail ]; then
-        ret=1
-        rm fail
-        echo -e "\n-------------------------- FAILED [Running Time = $CUR_TEST_TIME sec] -------------------------"
-      else
-        if [ -z "$IVERIFY" ]; then
-          echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------"
+        if [[ $IIS_NEGATIVE -ne 0 ]]; then
+          if cat fail | grep 139 > /dev/null ; then
+            rm fail
+            ret=1
+            echo -e "\n-------------------- NEGATIVE TEST FAILED [Running Time = $CUR_TEST_TIME sec] -------------------"
+          else
+            rm fail
+            echo -e "\n-------------------- NEGATIVE TEST PASSED [Running Time = $CUR_TEST_TIME sec] -------------------"
+          fi
         else
-          echo -e "========================================================================================\n"
-          $IVERIFY || ret=1
-          if [ $ret -eq 0 ]; then
+          ret=1
+          rm fail
+          echo -e "\n-------------------------- FAILED [Running Time = $CUR_TEST_TIME sec] -------------------------"
+        fi
+      else
+        if [[ $IIS_NEGATIVE -ne 0 ]]; then
+          ret=1
+          rm fail
+          echo -e "\n-------------------- NEGATIVE TEST FAILED [Running Time = $CUR_TEST_TIME sec] -------------------"
+        else
+          if [ -z "$IVERIFY" ]; then
             echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------"
           else
-            echo -e "\n------------------ VERIFICATION FAILED [Running Time = $CUR_TEST_TIME sec] -----------------"
+            echo -e "========================================================================================\n"
+            $IVERIFY || ret=1
+            if [ $ret -eq 0 ]; then
+              echo -e "\n-------------------------- PASSED [Running Time = $CUR_TEST_TIME sec] -------------------------"
+            else
+              echo -e "\n------------------ VERIFICATION FAILED [Running Time = $CUR_TEST_TIME sec] -----------------"
+            fi
           fi
         fi
       fi
@@ -283,6 +323,7 @@ echo Total Tests=$TEST_CNT
 TESTS_SUCCESSFUL=()
 TESTS_FAILED=()
 TESTS_TIMEDOUT=()
+TESTS_IGNORED=()
 
 i=0
 while [ $i -lt $TEST_CNT ];
@@ -292,6 +333,8 @@ do
   ICOUNT=${COUNTS[$i]}
   ITIMEOUT=${TIMEOUTS[$i]}
   IVERIFY=${VERIFYS[$i]}
+  IIS_NEGATIVE=${IS_NEGATIVES[$i]}
+  IIS_IGNORE=${IS_IGNORES[$i]}
   TOTAL_TIME=0
 
   echo -e "\n\n"
@@ -300,6 +343,8 @@ do
   echo COUNT = $ICOUNT
   echo TIMEOUT = $ITIMEOUT
   echo VERIFICATION = $IVERIFY
+  echo IS_NEGATIVE = $IIS_NEGATIVE
+  echo IS_IGNORE = $IIS_IGNORE
   SUCCESS=1
 
   while [[ $ICOUNT -eq 0 || $j -lt $ICOUNT ]];
@@ -310,7 +355,7 @@ do
     mkdir -p "$LOG_FILE"
     LOG_FILE="$LOG_FILE/$k"
 
-    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" | tee "$LOG_FILE"
+    run_test_timed "$ITEST" $ITIMEOUT $k $ICOUNT $i "$IVERIFY" "$IIS_NEGATIVE" | tee "$LOG_FILE"
     echo -n "$k/$ICOUNT......."
     case $ret in
       0)
@@ -320,20 +365,30 @@ do
       1)
         echo "[Failed]"
         SUCCESS=0
-        TESTS_FAILED+=("[$i] $ITEST Iteration = $k")
+        if [[ $IS_IGNORE -eq 0 ]]; then
+          TESTS_FAILED+=("[$i] $ITEST Iteration = $k")
+        fi
         j=$ICOUNT;
         ;;
       2)
         echo "[Timed Out]"
         SUCCESS=0
-        TESTS_TIMEDOUT+=("[$i] $ITEST Iteration = $k")
+        if [[ $IS_IGNORE -eq 0 ]]; then
+          TESTS_TIMEDOUT+=("[$i] $ITEST Iteration = $k")
+        fi
         j=$ICOUNT;
         ;;
     esac
     j=$((j+1))
   done
 
-  if [ $SUCCESS -eq 1 ]; then
+  if [[ $IS_IGNORE -ne 0 ]]; then
+      if [[ $SUCCESS -eq 0 ]]; then
+        TESTS_IGNORED+=("[$i] $ITEST : FAILED")
+      else
+        TESTS_IGNORED+=("[$i] $ITEST : PASSED")
+      fi
+  elif [ $SUCCESS -eq 1 ]; then
     if [ $PROFILING -eq 1 ]; then
       AVG_TIME=`echo "scale=2; $TOTAL_TIME / $ICOUNT" | bc`
       TESTS_SUCCESSFUL+=("[$i] $ITEST (Avg. Time = $AVG_TIME sec)")
@@ -362,6 +417,17 @@ fi
 if [ ${#TESTS_TIMEDOUT[@]} -ne 0 ]; then
   SUCCESS=0
   echo -e "\n\nFollowing Tests Timed out. Check logs in $TESTS_OUTPUT"
+  echo -e "------------------------------------------------------------------------------------------------\n"
+  for i in "${TESTS_TIMEDOUT[@]}"
+  do
+    echo $i
+    echo
+  done
+  echo "------------------------------------------------------------------------------------------------"
+fi
+
+if [ ${#TESTS_IGNORED[@]} -ne 0 ]; then
+  echo -e "\n\nFollowing Tests were Ignored. Check logs in $TESTS_OUTPUT"
   echo -e "------------------------------------------------------------------------------------------------\n"
   for i in "${TESTS_TIMEDOUT[@]}"
   do
